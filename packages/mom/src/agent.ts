@@ -501,6 +501,7 @@ function createRunner(sandboxConfig: SandboxConfig, channelId: string, channelDi
 		if (!runState.ctx || !runState.logCtx || !runState.queue) return;
 
 		const { ctx, logCtx, queue, pendingTools } = runState;
+		const eventType = (event as { type: string }).type;
 
 		if (event.type === "tool_execution_start") {
 			const agentEvent = event as AgentEvent & { type: "tool_execution_start" };
@@ -600,13 +601,15 @@ function createRunner(sandboxConfig: SandboxConfig, channelId: string, channelDi
 					queue.enqueueMessage(text, "thread", "response thread", false);
 				}
 			}
-		} else if (event.type === "compaction_start") {
-			log.logInfo(`Compaction started (reason: ${event.reason})`);
+		} else if (eventType === "compaction_start" || eventType === "auto_compaction_start") {
+			const compactionEvent = event as { reason: string };
+			log.logInfo(`Compaction started (reason: ${compactionEvent.reason})`);
 			queue.enqueue(() => ctx.respond("_Compacting context..._", false), "compaction start");
-		} else if (event.type === "compaction_end") {
-			if (event.result) {
-				log.logInfo(`Compaction complete: ${event.result.tokensBefore} tokens compacted`);
-			} else if (event.aborted) {
+		} else if (eventType === "compaction_end" || eventType === "auto_compaction_end") {
+			const compactionEvent = event as { result?: { tokensBefore: number }; aborted?: boolean };
+			if (compactionEvent.result) {
+				log.logInfo(`Compaction complete: ${compactionEvent.result.tokensBefore} tokens compacted`);
+			} else if (compactionEvent.aborted) {
 				log.logInfo("Compaction aborted");
 			}
 		} else if (event.type === "auto_retry_start") {
